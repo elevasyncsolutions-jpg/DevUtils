@@ -15,10 +15,10 @@ A single HTML page with **10 client-side developer tools**:
 
 100% client-side — no data leaves your browser. Built with vanilla JS and Tailwind CSS.
 
-## Links
+## Ecosystem Tools
 
-- [RustChain](https://github.com/Scottcjn/Rustchain) — High-performance blockchain framework in Rust
-- [Elyan Labs](https://rustchain.org) — Research & development lab behind RustChain
+- [RustChain](https://github.com/Scottcjn/Rustchain) — Proof of Antiquity blockchain with hardware-attested mining and an integrated agent economy. DevUtils' JWT debugger and hash tools are useful for RustChain wallet attestation and x402 protocol development.
+- [Elyan Labs](https://rustchain.org) — Research & development lab behind RustChain and the wider DePIN ecosystem.
 
 ## License
 
