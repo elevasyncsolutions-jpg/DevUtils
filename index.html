@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DevUtils — Developer Toolbox</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={theme:{extend:{colors:{brand:'#6366f1'}}}}</script>
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans">
+<div id="app" class="max-w-6xl mx-auto p-4"></div>
+<script>
+const app = document.getElementById('app')
+
+const TOOLS = [
+  { id:'json', icon:'{}', label:'JSON Formatter', color:'from-violet-500 to-purple-600' },
+  { id:'csv', icon:'📊', label:'CSV <-> JSON', color:'from-blue-500 to-cyan-600' },
+  { id:'hash', icon:'#', label:'Hash Generator', color:'from-emerald-500 to-teal-600' },
+  { id:'jwt', icon:'🔐', label:'JWT Debugger', color:'from-orange-500 to-red-600' },
+  { id:'base64', icon:'🔡', label:'Base64', color:'from-pink-500 to-rose-600' },
+  { id:'uuid', icon:'🆔', label:'UUID Generator', color:'from-indigo-500 to-blue-600' },
+  { id:'case', icon:'Aa', label:'Case Converter', color:'from-amber-500 to-yellow-600' },
+  { id:'timestamp', icon:'⏱', label:'Timestamp', color:'from-sky-500 to-indigo-600' },
+  { id:'color', icon:'🎨', label:'Color Converter', color:'from-fuchsia-500 to-purple-600' },
+  { id:'regex', icon:'.*', label:'Regex Tester', color:'from-lime-500 to-green-600' },
+]
+
+let currentTool = null
+let jsonInput = '', jsonOutput = '', jsonError = ''
+let csvInput = '', csvOutput = '', csvMode = 'json2csv'
+let hashInput = '', hashAlgo = 'sha256', hashOutput = ''
+let jwtInput = '', jwtOutput = '', jwtError = ''
+let b64Input = '', b64Output = '', b64Mode = 'encode'
+let uuidCount = 1, uuidVersion = 'v4', uuids = []
+let caseInput = '', caseOutput = '', caseMode = 'camel'
+let tsInput = '', tsFormat = 'unix', tsOutput = ''
+let colorInput = '#6366f1', colorOutput = ''
+let regexPattern = '', regexFlags = 'gm', regexText = '', regexMatches = []
+
+function render() {
+  app.innerHTML = `
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-2xl font-bold"><span class="text-brand">Dev</span>Utils</h1>
+      <div class="flex items-center gap-3 text-sm text-gray-500">
+        <span>⚡ All client-side · Free</span>
+        <a href="#" onclick="showPro()" class="text-brand font-semibold hover:underline">Pro → $5/mo</a>
+      </div>
+    </div>
+    <div class="grid grid-cols-5 md:grid-cols-10 gap-2 mb-6">
+      ${TOOLS.map(t => `
+        <button onclick="setTool('${t.id}')" class="flex flex-col items-center p-2 rounded-lg transition-all ${currentTool===t.id?'ring-2 ring-brand shadow-lg scale-105 bg-white':'bg-white hover:shadow hover:scale-105'}">
+          <span class="text-lg font-bold">${t.icon}</span>
+          <span class="text-[10px] mt-0.5 text-gray-600">${t.label}</span>
+        </button>
+      `).join('')}
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border p-4 min-h-[400px]">
+      ${currentTool ? renderTool() : `<div class="flex items-center justify-center h-[400px] text-gray-400"><div class="text-center"><div class="text-5xl mb-3">🛠</div><p class="text-lg">Select a tool to get started</p></div></div>`}
+    </div>
+    <div class="mt-6 p-3 bg-gradient-to-r from-brand/5 to-purple-500/5 rounded-lg text-center text-sm text-gray-500 border border-brand/10">
+      ⚡ 100% client-side · No data leaves your browser · Made for developers
+    </div>
+  `
+}
+
+function renderTool() {
+  switch(currentTool) {
+    case 'json': return jsonTool()
+    case 'csv': return csvTool()
+    case 'hash': return hashTool()
+    case 'jwt': return jwtTool()
+    case 'base64': return b64Tool()
+    case 'uuid': return uuidTool()
+    case 'case': return caseTool()
+    case 'timestamp': return tsTool()
+    case 'color': return colorTool()
+    case 'regex': return regexTool()
+    default: return ''
+  }
+}
+/* === TOOL RENDERERS === */
+function jsonTool() {
+  return `
+    <h2 class="text-lg font-bold mb-3">JSON Formatter & Validator</h2>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <textarea id="jsonIn" oninput="jsonFormat()" class="w-full h-60 border rounded-lg p-3 font-mono text-sm" placeholder="Paste JSON here...">${jsonInput}</textarea>
+        <div class="flex gap-2 mt-2">
+          <button onclick="jsonFormat()" class="px-3 py-1.5 bg-brand text-white rounded-lg text-sm">Format</button>
+          <button onclick="jsonMinify()" class="px-3 py-1.5 bg-gray-200 rounded-lg text-sm">Minify</button>
+          <button onclick="jsonValidate()" class="px-3 py-1.5 bg-gray-200 rounded-lg text-sm">Validate</button>
+          <span class="text-xs self-center ${jsonError?'text-red-500':'text-green-500'}">${jsonError||'✅'}</span>
+        </div>
+      </div>
+      <div>
+        <textarea id="jsonOut" readonly class="w-full h-60 border rounded-lg p-3 font-mono text-sm bg-gray-50" placeholder="Output...">${jsonOutput}</textarea>
+        <button onclick="copy('jsonOut')" class="mt-2 px-3 py-1.5 bg-gray-200 rounded-lg text-sm">📋 Copy</button>
+      </div>
+    </div>
+  `
+}
+function csvTool() {
+  return `
+    <h2 class="text-lg font-bold mb-3">CSV ⇄ JSON Converter</h2>
+    <div class="flex gap-2 mb-3">
+      ${['json2csv','csv2json'].map(m => `<button onclick="csvMode='${m}';csvConvert()" class="px-3 py-1.5 rounded-lg text-sm ${csvMode===m?'bg-brand text-white':'bg-gray-200'}">${m==='json2csv'?'JSON → CSV':'CSV → JSON'}</button>`).join('')}
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div><textarea id="csvIn" oninput="csvConvert()" class="w-full h-60 border rounded-lg p-3 font-mono text-sm" placeholder="${csvMode==='json2csv'?'[{"key":"value"}]':'key,value\\n1,2'}">${csvInput}</textarea></div>
+      <div><textarea id="csvOut" readonly class="w-full h-60 border rounded-lg p-3 font-mono text-sm bg-gray-50">${csvOutput}</textarea></div>
+    </div>
+    <button onclick="copy('csvOut')" class="mt-2 px-3 py-1.5 bg-gray-200 rounded-lg text-sm">📋 Copy</button>
+  `
+}
+function hashTool() {
+  const algos = ['md5','sha1','sha256','sha512','sha3']
+  return `
+    <h2 class="text-lg font-bold mb-3">Hash Generator</h2>
+    <div class="flex gap-2 mb-3 flex-wrap">
+      ${algos.map(a => `<button onclick="hashAlgo='${a}';hashGenerate()" class="px-3 py-1.5 rounded-lg text-sm uppercase ${hashAlgo===a?'bg-brand text-white':'bg-gray-200'}">${a}</button>`).join('')}
+    </div>
+    <textarea id="hashIn" oninput="hashGenerate()" class="w-full h-32 border rounded-lg p-3 font-mono text-sm" placeholder="Text to hash...">${hashInput}</textarea>
+    <div class="mt-3"><div class="text-sm text-gray-500 mb-1">${hashAlgo.toUpperCase()} Hash:</div><code id="hashOut" class="block p-3 bg-gray-50 border rounded-lg font-mono text-sm break-all">${hashOutput}</code></div>
+    <button onclick="copyEl('hashOut')" class="mt-2 px-3 py-1.5 bg-gray-200 rounded-lg text-sm">📋 Copy</button>
+  `
+}
+function jwtTool() {
+  return `
+    <h2 class="text-lg font-bold mb-3">JWT Debugger</h2>
+    <textarea id="jwtIn" oninput="jwtDecode()" class="w-full h-24 border rounded-lg p-3 font-mono text-sm" placeholder="Paste JWT token...">${jwtInput}</textarea>
+    <div class="mt-3 grid grid-cols-2 gap-3">
+      <div><div class="text-sm text-gray-500 mb-1">Header</div><pre id="jwtHeader" class="bg-gray-50 border rounded-lg p-2 text-xs font-mono overflow-auto max-h-40">${jwtOutput.split('|||')[0]||''}</pre></div>
+      <div><div class="text-sm text-gray-500 mb-1">Payload</div><pre id="jwtPayload" class="bg-gray-50 border rounded-lg p-2 text-xs font-mono overflow-auto max-h-40">${jwtOutput.split('|||')[1]||''}</pre></div>
+    </div>
+    ${jwtError ? `<div class="text-red-500 text-sm mt-2">${jwtError}</div>` : ''}
+  `
+}
+function b64Tool() {
+  return `
+    <h2 class="text-lg font-bold mb-3">Base64 Encode / Decode</h2>
+    <div class="flex gap-2 mb-3">
+      ${['encode','decode'].map(m => `<button onclick="b64Mode='${m}';b64Convert()" class="px-3 py-1.5 rounded-lg text-sm ${b64Mode===m?'bg-brand text-white':'bg-gray-200'}">${m==='encode'?'Encode →':'Decode →'}</button>`).join('')}
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div><textarea id="b64In" oninput="b64Convert()" class="w-full h-32 border rounded-lg p-3 font-mono text-sm" placeholder="Input...">${b64Input}</textarea></div>
+      <div><textarea id="b64Out" readonly class="w-full h-32 border rounded-lg p-3 font-mono text-sm bg-gray-50">${b64Output}</textarea></div>
+    </div>
+    <button onclick="copy('b64Out')" class="mt-2 px-3 py-1.5 bg-gray-200 rounded-lg text-sm">📋 Copy</button>
+  `
+}
+function uuidTool() {
+  return `
+    <h2 class="text-lg font-bold mb-3">UUID Generator</h2>
+    <div class="flex gap-3 mb-3 items-center">
+      <select onchange="uuidVersion=this.value;uuidGenerate()" class="border rounded-lg px-3 py-1.5 text-sm">
+        <option value="v4" ${uuidVersion==='v4'?'selected':''}>UUID v4 (random)</option>
+        <option value="v7" ${uuidVersion==='v7'?'selected':''}>UUID v7 (time-based)</option>
+      </select>
+      <span class="text-sm">Count:</span>
+      <input type="number" value="${uuidCount}" min="1" max="100" onchange="uuidCount=+this.value;uuidGenerate()" class="border rounded-lg px-2 py-1.5 w-16 text-sm">
+      <button onclick="uuidGenerate()" class="px-3 py-1.5 bg-brand text-white rounded-lg text-sm">Generate</button>
+      <button onclick="copyEl('uuidList')" class="px-3 py-1.5 bg-gray-200 rounded-lg text-sm">📋 Copy All</button>
+    </div>
+    <pre id="uuidList" class="bg-gray-50 border rounded-lg p-3 font-mono text-sm max-h-60 overflow-auto">${uuids.join('\n')||'Click Generate'}</pre>
+  `
+}
+function caseTool() {
+  const modes = [{id:'camel',l:'camelCase'},{id:'pascal',l:'PascalCase'},{id:'snake',l:'snake_case'},{id:'kebab',l:'kebab-case'},{id:'upper',l:'UPPER_CASE'},{id:'lower',l:'lowercase'}]
+  return `
+    <h2 class="text-lg font-bold mb-3">Case Converter</h2>
+    <textarea id="caseIn" oninput="caseConvert()" class="w-full h-24 border rounded-lg p-3 font-mono text-sm" placeholder="Type text to convert...">${caseInput}</textarea>
+    <div class="flex gap-2 mt-3 flex-wrap">
+      ${modes.map(m => `<button onclick="caseMode='${m.id}';caseConvert()" class="px-3 py-1.5 rounded-lg text-sm ${caseMode===m.id?'bg-brand text-white':'bg-gray-200'}">${m.l}</button>`).join('')}
+    </div>
+    <div class="mt-3"><code class="block p-3 bg-gray-50 border rounded-lg font-mono text-sm">${caseOutput}</code></div>
+    <button onclick="copyEl('caseOutput')" class="mt-2 px-3 py-1.5 bg-gray-200 rounded-lg text-sm">📋 Copy</button>
+  `
+}
+function tsTool() {
+  return `
+    <h2 class="text-lg font-bold mb-3">Timestamp Converter</h2>
+    <div class="flex gap-2 mb-3">
+      ${['unix','date'].map(m => `<button onclick="tsFormat='${m}';tsConvert()" class="px-3 py-1.5 rounded-lg text-sm ${tsFormat===m?'bg-brand text-white':'bg-gray-200'}">${m==='unix'?'Unix → Date':'Date → Unix'}</button>`).join('')}
+    </div>
+    <input id="tsIn" oninput="tsConvert()" class="w-full border rounded-lg p-3 text-sm font-mono" placeholder="${tsFormat==='unix'?'Unix timestamp (e.g. 1700000000)':'ISO date (e.g. 2024-01-01)'}" value="${tsInput}">
+    <div class="mt-3"><code class="block p-3 bg-gray-50 border rounded-lg font-mono text-sm">${tsOutput}</code></div>
+    <button onclick="copyEl('tsOutput')" class="mt-2 px-3 py-1.5 bg-gray-200 rounded-lg text-sm">📋 Copy</button>
+  `
+}
+function colorTool() {
+  return `
+    <h2 class="text-lg font-bold mb-3">Color Converter</h2>
+    <div class="flex gap-3 items-center mb-3">
+      <input type="color" value="${colorInput}" onchange="colorInput=this.value;colorConvert()" class="w-12 h-12 rounded cursor-pointer">
+      <input value="${colorInput}" oninput="colorInput=this.value;colorConvert()" class="border rounded-lg px-3 py-1.5 font-mono text-sm w-28">
+    </div>
+    <div class="grid grid-cols-3 gap-3">
+      ${['HEX','RGB','HSL'].map(t => `
+        <div class="bg-gray-50 border rounded-lg p-3">
+          <div class="text-xs text-gray-500 mb-1">${t}</div>
+          <code class="font-mono text-sm">${colorOutput.split('|')[['HEX','RGB','HSL'].indexOf(t)]||'-'}</code>
+        </div>
+      `).join('')}
+    </div>
+  `
+}
+function regexTool() {
+  return `
+    <h2 class="text-lg font-bold mb-3">Regex Tester</h2>
+    <div class="flex gap-2 mb-3">
+      <input id="regexPattern" oninput="regexTest()" class="flex-1 border rounded-lg px-3 py-1.5 font-mono text-sm" placeholder="Pattern" value="${regexPattern}">
+      <input id="regexFlags" oninput="regexTest()" class="w-20 border rounded-lg px-3 py-1.5 font-mono text-sm" placeholder="Flags" value="${regexFlags}">
+    </div>
+    <textarea id="regexText" oninput="regexTest()" class="w-full h-40 border rounded-lg p-3 font-mono text-sm" placeholder="Test text...">${regexText}</textarea>
+    <div class="mt-3 flex gap-3">
+      <div class="text-sm text-gray-500">Matches: <strong>${regexMatches.length}</strong></div>
+      <div class="flex-1 font-mono text-sm break-all">${regexMatches.slice(0,20).map(m => `<span class="inline-block bg-yellow-100 px-1 rounded">${m}</span>`).join(' ')}</div>
+    </div>
+  `
+}
+/* === TOOL LOGIC === */
+function setTool(id) { currentTool=id; render(); setTimeout(()=>{switch(id){case'json':jsonFormat();break;case'csv':csvConvert();break;case'hash':hashGenerate();break;case'jwt':jwtDecode();break;case'b64':b64Convert();break;case'uuid':uuidGenerate();break;case'case':caseConvert();break;case'timestamp':tsConvert();break;case'color':colorConvert();break;case'regex':regexTest();break;}},50) }
+
+function jsonFormat(){jsonInput=document.getElementById('jsonIn')?.value||'';try{const p=JSON.parse(jsonInput);jsonOutput=JSON.stringify(p,null,2);jsonError=''}catch(e){jsonOutput='';jsonError='❌ Invalid JSON: '+e.message}const o=document.getElementById('jsonOut');if(o)o.value=jsonOutput;renderOutput()}
+function jsonMinify(){jsonInput=document.getElementById('jsonIn')?.value||'';try{jsonOutput=JSON.stringify(JSON.parse(jsonInput));jsonError=''}catch(e){jsonOutput='';jsonError='❌ '+e.message}const o=document.getElementById('jsonOut');if(o)o.value=jsonOutput;renderOutput()}
+function jsonValidate(){jsonInput=document.getElementById('jsonIn')?.value||'';try{JSON.parse(jsonInput);jsonError=''}catch(e){jsonError='❌ Invalid: '+e.message}renderOutput()}
+
+function csvConvert(){const i=document.getElementById('csvIn');if(!i)return;csvInput=i.value;try{if(csvMode==='json2csv'){const d=JSON.parse(csvInput);if(!d.length)throw Error('Empty array');const h=Object.keys(d[0]);csvOutput=[h.join(','),...d.map(r=>h.map(k=>String(r[k]??'').replace(/,/g,'\\,').replace(/"/g,'""')).join(','))].join('\n')}else{const l=csvInput.split('\n').filter(Boolean);if(l.length<2)throw Error('Need header + 1 row');const h=l[0].split(',').map(s=>s.trim());csvOutput=JSON.stringify(l.slice(1).map(r=>{const v=r.split(',').map(s=>s.trim());const o={};h.forEach((k,i)=>o[k]=v[i]??'');return o}),null,2)}}catch(e){csvOutput='Error: '+e.message}const o=document.getElementById('csvOut');if(o)o.value=csvOutput}
+
+async function hashGenerate(){const i=document.getElementById('hashIn');if(!i)return;hashInput=i.value;if(!hashInput){hashOutput='';const o=document.getElementById('hashOut');if(o)o.textContent='';return}const enc=new TextEncoder();const buf=enc.encode(hashInput);const h=await crypto.subtle.digest(hashAlgo==='sha3'?'SHA-384':hashAlgo.toUpperCase(),buf);hashOutput=Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');if(hashAlgo==='sha3')hashOutput='[SHA-3 simulated via SHA-384] '+hashOutput;const o=document.getElementById('hashOut');if(o)o.textContent=hashOutput}
+
+function jwtDecode(){const i=document.getElementById('jwtIn');if(!i)return;jwtInput=i.value;jwtError='';jwtOutput='';try{const p=jwtInput.split('.');if(p.length!==3)throw Error('Invalid JWT format');const h=JSON.parse(atob(p[0]));const b=JSON.parse(atob(p[1]));jwtOutput=JSON.stringify(h,null,2)+'|||'+JSON.stringify(b,null,2)}catch(e){jwtError='❌ '+e.message}const hd=document.getElementById('jwtHeader');if(hd)hd.textContent=jwtOutput.split('|||')[0]||'';const pl=document.getElementById('jwtPayload');if(pl)pl.textContent=jwtOutput.split('|||')[1]||''}
+
+function b64Convert(){const i=document.getElementById('b64In');if(!i)return;b64Input=i.value;try{b64Output=b64Mode==='encode'?btoa(b64Input):atob(b64Input)}catch(e){b64Output='Error: '+e.message}const o=document.getElementById('b64Out');if(o)o.value=b64Output}
+
+function uuidGenerate(){const g=()=>{if(uuidVersion==='v7'){const t=Date.now().toString(16).padStart(12,'0');const r=crypto.getRandomValues(new Uint8Array(10));return`${t.slice(0,8)}-${t.slice(8,12)}-7${r[0].toString(16).padStart(3,'0')}-${(8+r[1]%4).toString(16)}${r[2].toString(16).padStart(2,'0')}-${Array.from(r.slice(3,9)).map(b=>b.toString(16).padStart(2,'0')).join('')}`}return crypto.randomUUID()};uuids=Array.from({length:uuidCount},()=>g());const el=document.getElementById('uuidList');if(el)el.textContent=uuids.join('\n')}
+
+function caseConvert(){const i=document.getElementById('caseIn');if(!i)return;caseInput=i.value;const w=caseInput.match(/[a-zA-Z0-9]+/g)||[];switch(caseMode){case'camel':caseOutput=w.map((s,i)=>i===0?s.toLowerCase():s[0].toUpperCase()+s.slice(1).toLowerCase()).join('');break;case'pascal':caseOutput=w.map(s=>s[0].toUpperCase()+s.slice(1).toLowerCase()).join('');break;case'snake':caseOutput=w.join('_').toLowerCase();break;case'kebab':caseOutput=w.join('-').toLowerCase();break;case'upper':caseOutput=w.join('_').toUpperCase();break;case'lower':caseOutput=w.join('_').toLowerCase();break}}
+
+function tsConvert(){const i=document.getElementById('tsIn');if(!i)return;tsInput=i.value;try{if(tsFormat==='unix'){const d=new Date(+tsInput*1000);tsOutput=d.toISOString().replace('T',' ').slice(0,19)}else{const d=new Date(tsInput);tsOutput=String(Math.floor(d.getTime()/1000))}}catch(e){tsOutput='Error: '+e.message}}
+
+function colorConvert(){if(!colorInput.startsWith('#'))colorInput='#'+colorInput;const h=colorInput.replace('#','');if(h.length!==6)return;const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);const rn=r/255,gn=g/255,bn=b/255;const mx=Math.max(rn,gn,bn),mn=Math.min(rn,gn,bn);let h2=0,s=0,l=(mx+mn)/2;if(mx!==mn){const d=mx-mn;s=l>0.5?d/(2-mx-mn):d/(mx+mn);switch(mx){case rn:h2=((gn-bn)/d+(gn<bn?6:0))*60;break;case gn:h2=((bn-rn)/d+2)*60;break;case bn:h2=((rn-gn)/d+4)*60}}colorOutput=`#${h}|rgb(${r},${g},${b})|hsl(${Math.round(h2)},${Math.round(s*100)}%,${Math.round(l*100)}%)`}
+
+function regexTest(){const p=document.getElementById('regexPattern');const f=document.getElementById('regexFlags');const t=document.getElementById('regexText');if(!p||!f||!t)return;regexPattern=p.value;regexFlags=f.value;regexText=t.value;try{const re=new RegExp(regexPattern,regexFlags);regexMatches=[];let m;while((m=re.exec(regexText))!==null){regexMatches.push(m[0]);if(re.lastIndex===m.index)re.lastIndex++}}catch(e){regexMatches=[`Error: ${e.message}`]}renderOutput()}
+
+function copy(id){const el=document.getElementById(id);if(el){navigator.clipboard.writeText(el.value);showCopied()}}
+function copyEl(id){const el=document.getElementById(id);if(el){navigator.clipboard.writeText(el.textContent);showCopied()}}
+function showCopied(){const t=document.createElement('div');t.className='fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg text-sm z-50';t.textContent='✅ Copied!';document.body.appendChild(t);setTimeout(()=>t.remove(),1500)}
+function renderOutput(){const el=document.getElementById('jsonOut');if(el&&!el.value)el.scrollTop=0}
+function showPro(){alert('🚀 Pro plan coming soon!\n\nEarly adopter: $5/mo\n- Save history\n- Batch processing\n- API access\n- No branding\n- Dark theme\n\nContact: devutils@proton.me')}
+
+render()
+</script>
+</body>
+</html>
